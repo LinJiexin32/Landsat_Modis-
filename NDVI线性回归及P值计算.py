@@ -8,13 +8,16 @@ import time
 start = time.time()
 
 # 打开遥感影像文件
-dataset = gdal.Open(r"E:\Landsat_Modis_NDVI_trend\Moids\V2\MODIS_00_22_ndvi_Partial_area.tif")
+dataset = gdal.Open(r"C:\Users\15433\Downloads\MODIS_00_22_ndvi_Partial_area.tif")
 
 # 读取图像大小
 width = dataset.RasterXSize
 height = dataset.RasterYSize
 print('width:',width)
 print('height:',height)
+# 读取波段数
+bands = dataset.RasterCount
+print('bands:',bands)
 
 # 读取遥感影像数据到 numpy 数组中
 dataArray = dataset.ReadAsArray()
@@ -36,19 +39,16 @@ del dataset
 
 
 # 新影像的存储路径
-corr_image_path = r"E:\Landsat_Modis_NDVI_trend\Moids\V2\MODIS_00_22_ndvi_corr_image.tif"
-pvalue_image_path = r"E:\Landsat_Modis_NDVI_trend\Moids\V2\MODIS_00_22_ndvi_pvalue_image.tif"
+corr_image_path = "MODIS_00_22_ndvi_corr_image.tif"
+pvalue_image_path = "MODIS_00_22_ndvi_pvalue_image.tif"
 
 # 创建新影像
 driver = gdal.GetDriverByName('GTiff')
-corr_image_dataset = driver.Create(corr_image_path, width, height, 1, gdal.GDT_Float64)
-pvalue_image_dataset = driver.Create(pvalue_image_path, width, height, 1, gdal.GDT_Float64)
+outRaster = driver.Create('NDVI_Corr_Pvalue.tif', width, height, bands+2, gdal.GDT_Float64)
 
 # 设置新影像的地理信息和投影信息
-corr_image_dataset.SetProjection(proj)
-corr_image_dataset.SetGeoTransform(trans)
-pvalue_image_dataset.SetProjection(proj)
-pvalue_image_dataset.SetGeoTransform(trans)
+outRaster.SetProjection(proj)
+outRaster.SetGeoTransform(trans)
 
 # 设置一个进度条
 progress = gdal.TermProgress_nocb
@@ -78,12 +78,20 @@ for i in range(height):
             pvalue = np.array(pvalue).reshape(1, -1)
 
         # 将结果写入新影像中
-        corr_image_dataset.GetRasterBand(1).WriteArray(corr, j, i)
-        pvalue_image_dataset.GetRasterBand(1).WriteArray(pvalue, j, i)
+        # 处理每个波段
+        for k in range(1, bands + 1):
+            d = dataArray[k - 1, i, j]
+            #将d变为二维数组
+            d = np.array(d).reshape(1, -1)
+            outRaster.GetRasterBand(k).WriteArray(d, j, i)
+        # 处理相关系数
+        outRaster.GetRasterBand(bands + 1).WriteArray(corr, j, i)
+        # 处理p值
+        outRaster.GetRasterBand(bands + 2).WriteArray(pvalue, j, i)
 
 # 关闭数据集
-del corr_image_dataset
-del pvalue_image_dataset
+del outRaster
+
 
 end = time.time()
 print("花了",(end - start)/60,"分钟")
