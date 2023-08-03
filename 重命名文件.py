@@ -1,7 +1,7 @@
 import os
 
 # 获取当前工作目录
-path = os.chdir(r"E:\Landsat_Modis_NDVI_trend\Landsat\V2_78\ndvi")
+path = os.chdir(r"E:\Landsat_Modis_NDVI_trend\Landsat\587_gsMax\L_ndvi_578_gsMax\ndvi")
 
 # 获取文件夹中所有文件和文件名
 files = os.listdir(path)
@@ -17,5 +17,5 @@ print(sorted_files)
 
 # 重命名文件
 for i in range(len(sorted_files)):
-    os.rename(sorted_files[i][0], "Landsat_ndvi__"+str(i) + ".tif")  # 重命名文件
-    print(sorted_files[i][0] + " has been renamed to " + "Landsat_ndvi__"+ str(i) + ".tif")   # 打印重命名信息
+    os.rename(sorted_files[i][0], "L_ndvi_gsMax_"+str(i) + ".tif")  # 重命名文件
+    print(sorted_files[i][0] + " has been renamed to " + "L_ndvi_gsMax_"+ str(i) + ".tif")   # 打印重命名信息

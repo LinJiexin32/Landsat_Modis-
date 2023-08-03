@@ -4,14 +4,13 @@ import time
 import multiprocessing
 import os
 import pymannkendall as mk
-
+from tqdm import tqdm
 
 def err_call_back(err):
     print(f'出错啦~ error：{str(err)}')
 
-
 # 封装的函数
-def mk_test(inputName, outputName):
+def mk_test(inputName, outputName,results):
     # 打开遥感影像文件
     dataset = gdal.Open(inputName)
 
@@ -38,14 +37,9 @@ def mk_test(inputName, outputName):
     # 设置新影像的地理信息和投影信息
     outRaster.SetProjection(proj)
     outRaster.SetGeoTransform(trans)
-    # 设置一个进度条
-    progress = gdal.TermProgress_nocb
-
     # 计算相关系数和p值，并将结果写入新影像中
-    for i in range(height):
+    for i in tqdm(range(height), desc=inputName.split(os.sep)[-1],leave=False):
         for j in range(width):
-            # 显示进度条
-            progress((i * width + j) / (width * height))
             # 读取像元值
             pixel_values = dataArray[:, i, j]
             # 如果pixel_values中元素的非nan值在2个以下，则将trend_value\p值\sens slope都设置为nan
@@ -78,23 +72,41 @@ def mk_test(inputName, outputName):
 
     # 关闭数据集
     del outRaster
-    print(inputName + "处理完成")
+    tqdm.write(inputName + "处理完成")
+    results.append(outputName)
 
 # 多进程处理函数
-def process_multiprocessing(inputFileList, outputFolder):
+def process_multiprocessing2(inputFileList, outputFolder):
     # 创建进程池
     pool = multiprocessing.Pool(processes=6)
+
+    # 创建共享列表用于存储任务结果
+    manager = multiprocessing.Manager()
+    results = manager.list()
+
+    # 使用tqdm包装共享列表，用于显示总体进度
+    pbar = tqdm(total=len(inputFileList),desc='总体进度')
+
+    def update(*a):
+        pbar.update()
 
     for inputName in inputFileList:
         outputName = outputFolder + os.sep + os.path.splitext(os.path.basename(inputName))[0] + "_trend_pvalue_sens.tif"
         # 向进程池中添加要执行的任务
-        pool.apply_async(mk_test, args=(inputName, outputName), error_callback=err_call_back)
+        pool.apply_async(mk_test, args=(inputName, outputName, results), callback=update, error_callback=err_call_back)
     # 先调用close关闭进程池，不能再有新任务被加入到进程池中
     pool.close()
 
     # 用join函数等待所有子进程结束
     pool.join()
+
+    # 关闭tqdm进度条
+    pbar.close()
+
     print('joined')
+
+    return results
+
 
 
 # 主程序
@@ -102,15 +114,15 @@ if __name__ == '__main__':
     # 计算程序运行时间
     start = time.time()
     # 输入遥感影像文件夹路径
-    inputFolder = r"E:\Landsat_Modis_NDVI_trend\Landsat\V2_78\clip\9"
+    inputFolder = r"E:\Landsat_Modis_NDVI_trend\Landsat\587_gsMax\no_threshold\clip"
     # 输出遥感影像文件夹路径
-    outputFolder = r"E:\Landsat_Modis_NDVI_trend\Landsat\V2_78\mk_test_result"
+    outputFolder = r"E:\Landsat_Modis_NDVI_trend\Landsat\587_gsMax\no_threshold\MKtest_result"
 
     # 获取文件夹中所有的.tif文件路径
     inputFileList = []
     for root, dirs, files in os.walk(inputFolder):
         for f in files:
-            if f.endswith(".dat"):
+            if f.endswith(".dat") or f.endswith(".tif"):
                 # if f.endswith(".tif"):
                 inputFileList.append(os.path.join(root, f))
 
@@ -119,7 +131,7 @@ if __name__ == '__main__':
         os.makedirs(outputFolder)
 
     # 多进程处理
-    process_multiprocessing(inputFileList, outputFolder)
+    process_multiprocessing2(inputFileList, outputFolder)
 
     end = time.time()
     print("花了", (end - start) / 60, "分钟")
