@@ -59,6 +59,7 @@ def linear_regression(inputName, outputName):
             else:
                 # 计算相关系数和p值
                 slope, intercept, corr, pvalue, std_err = linregress(year, pixel_values)
+
                 # 将corr,pvalue,slope变为二维数组
                 corr = np.array(corr).reshape(1, -1)
                 pvalue = np.array(pvalue).reshape(1, -1)
